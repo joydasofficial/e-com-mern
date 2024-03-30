@@ -7,13 +7,11 @@ exports.User = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const validator_1 = __importDefault(require("validator"));
 const schema = new mongoose_1.default.Schema({
-    _id: {
-        type: String,
-        required: [true, "Please Enter ID"],
-    },
     name: {
         type: String,
         required: [true, "Please Enter Name"],
+        minLength: [3, "Name is Invalid"],
+        trim: true
     },
     email: {
         type: String,
@@ -21,9 +19,20 @@ const schema = new mongoose_1.default.Schema({
         required: [true, "Please Enter Email"],
         validate: validator_1.default.default.isEmail,
     },
+    password: {
+        type: String,
+        required: [true, "Please Enter Password"],
+        validate: {
+            validator: validator_1.default.default.isStrongPassword,
+            message: "Password must be strong"
+        }
+    },
     dob: {
         type: Date,
         required: [true, "Please Enter Date of Birth"],
+    },
+    age: {
+        type: Number
     },
     gender: {
         type: String,
@@ -34,22 +43,17 @@ const schema = new mongoose_1.default.Schema({
         type: String,
         enum: ["admin", "user"],
         required: [true, "Please Enter Role"],
+        default: "user"
     },
     photo: {
         type: String,
         required: [true, "Please Enter Photo"],
     },
+    token: {
+        type: String,
+        unique: true
+    }
 }, {
     timestamps: true,
-});
-schema.virtual("age").get(function () {
-    const today = new Date();
-    const dob = this.dob;
-    let age = today.getFullYear() - dob.getFullYear();
-    if (today.getMonth() < dob.getMonth() ||
-        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-        age--;
-    }
-    return age;
 });
 exports.User = mongoose_1.default.model("User", schema);

@@ -5,24 +5,24 @@ interface UserInterface extends Document {
   _id: string;
   name: string;
   email: string;
+  password: string;
   dob: Date;
   gender: "male" | "female";
   role: "admin" | "user";
   photo: string;
-  age: number; // Virtual Attribute
+  age: number;
+  token: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const schema = new mongoose.Schema(
   {
-    _id: {
-      type: String,
-      required: [true, "Please Enter ID"],
-    },
     name: {
       type: String,
       required: [true, "Please Enter Name"],
+      minLength: [3, "Name is Invalid"],
+      trim: true
     },
     email: {
       type: String,
@@ -30,9 +30,20 @@ const schema = new mongoose.Schema(
       required: [true, "Please Enter Email"],
       validate: validator.default.isEmail,
     },
+    password: {
+      type: String,
+      required: [true, "Please Enter Password"],
+      validate: {
+        validator: validator.default.isStrongPassword,
+        message: "Password must be strong"
+      }
+    },
     dob: {
       type: Date,
       required: [true, "Please Enter Date of Birth"],
+    },
+    age: {
+      type: Number
     },
     gender: {
       type: String,
@@ -43,30 +54,20 @@ const schema = new mongoose.Schema(
       type: String,
       enum: ["admin", "user"],
       required: [true, "Please Enter Role"],
+      default: "user"
     },
     photo: {
       type: String,
       required: [true, "Please Enter Photo"],
     },
+    token: {
+      type: String,
+      unique: true
+    }
   },
   {
     timestamps: true,
   }
 );
-
-schema.virtual("age").get(function () {
-  const today = new Date();
-  const dob: Date = this.dob;
-  let age = today.getFullYear() - dob.getFullYear();
-
-  if (
-    today.getMonth() < dob.getMonth() ||
-    (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
-  ) {
-    age--;
-  }
-
-  return age;
-});
 
 export const User = mongoose.model<UserInterface>("User", schema);
