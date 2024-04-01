@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.genHashPassword = exports.calculateAge = exports.response = void 0;
+exports.compareHashPassword = exports.genHashPassword = exports.calculateAge = exports.response = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 // Response Wrapper
 function response(res, statusCode, success, message, data) {
@@ -40,3 +40,15 @@ async function genHashPassword(password) {
     }
 }
 exports.genHashPassword = genHashPassword;
+// Compare Password
+async function compareHashPassword(password, dbpassword) {
+    try {
+        // Hash the password with the salt
+        const isCorrect = await bcrypt_1.default.compare(password, dbpassword);
+        return isCorrect; // Return the hashed password
+    }
+    catch (error) {
+        throw new Error('Hashing failed ' + error);
+    }
+}
+exports.compareHashPassword = compareHashPassword;

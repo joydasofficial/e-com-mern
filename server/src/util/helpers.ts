@@ -40,3 +40,14 @@ export async function genHashPassword(password: string) {
       throw new Error('Hashing failed ' + error);
   }
 }
+
+// Compare Password
+export async function compareHashPassword(password: string, dbpassword: string) {
+  try {
+      // Hash the password with the salt
+      const isCorrect = await bcrypt.compare(password, dbpassword);
+      return isCorrect; // Return the hashed password
+  } catch (error) {
+      throw new Error('Hashing failed ' + error);
+  }
+}

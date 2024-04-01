@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express';
 
 // Route Imports
+import authRoute from './routes/auth';
 import userRoute from './routes/user';
 import { connectDB } from './util/dbconnection';
 
@@ -18,6 +19,9 @@ connectDB();
 app.get("/", (req, res)=>{
     res.send("API's are active")
 });
+
+// Auth Routes
+app.use("/api/auth", authRoute);
 
 // User Routes
 app.use("/api/user", userRoute);

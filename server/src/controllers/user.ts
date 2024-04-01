@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from "express";
-import { CreateUserReqBody } from "../types/user";
+import { CreateUserReqBody, UserDTO } from "../types/user";
 import { User } from "../models/user";
 import { calculateAge, genHashPassword, response } from "../util/helpers";
 import { StatusCodes } from "http-status-codes";
 import jwt from "jsonwebtoken";
 
+// Create User Controller
 export const createUser = async (
   req: Request<{}, {}, CreateUserReqBody>,
   res: Response,
@@ -19,13 +20,13 @@ export const createUser = async (
 
     // Check if all the required fields are in request body
     if(!(name && email && password && dob && gender && photo )){
-      response(res, StatusCodes.BAD_REQUEST, false, 'Please enter all required fields');
+      return response(res, StatusCodes.BAD_REQUEST, false, 'Please enter all required fields');
     }
 
     // Check if user already exist
     let existingUser = await User.findOne({ email: email});    
     if(existingUser){
-      response(res, StatusCodes.CONFLICT, false, 'User already exist');
+      return response(res, StatusCodes.CONFLICT, false, 'User already exist');
     }
 
     // Generate Hash Password
@@ -66,15 +67,51 @@ export const createUser = async (
     }
     
     // Send Response    
-    response(res, StatusCodes.CREATED, true, 'User Created Successfully', {
+    return response(res, StatusCodes.CREATED, true, 'User Created Successfully', {
       "accessToken": accessToken,
       "refreshToken": refreshToken
     });
 
   } catch (error) {
-    response(res, StatusCodes.INTERNAL_SERVER_ERROR, false, 'User Created Successfully', {
-      success: false,
-      message: `Error: ${error}`,
-    });
+    return response(res, StatusCodes.INTERNAL_SERVER_ERROR, false, `Error ${error}`);
   }
 };
+
+// Get Profile
+export const getProfile = async(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  let token: string;
+  let verifiedToken: any;
+  let user: UserDTO | null;
+
+  // Get token from header
+  // TODO: Add auth middleware
+  if(req.headers.authorization){
+    token = req.headers.authorization.split(' ')[1];
+  }else{
+    return response(res, StatusCodes.NOT_FOUND, false, 'Bad Request');
+  }
+
+  try {
+    if(process.env.ACCESS_TOKEN_SECRET){
+      verifiedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);	
+    }
+  
+    if(!verifiedToken){
+      return response(res, StatusCodes.UNAUTHORIZED, false, 'Un-Authorized');
+    }
+
+    user = await User.findById(verifiedToken.id).select('_id name email dob gender photo role age createdAt updatedAt');
+    
+    if(!user){
+      return response(res, StatusCodes.NOT_FOUND, false, 'User not found');
+    }
+  
+    return response(res, StatusCodes.OK, true, 'Success', user);
+  } catch (error) {
+    return response(res, StatusCodes.BAD_REQUEST, false, `Error: ${error}`);
+  }
+}
