@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.token = exports.login = void 0;
+exports.logout = exports.token = exports.login = void 0;
 const user_1 = require("../models/user");
 const helpers_1 = require("../util/helpers");
 const http_status_codes_1 = require("http-status-codes");
@@ -12,123 +12,120 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const login = async (req, res, next) => {
     let isPasswordCorrect = false;
     let user;
-    let accessToken, refreshToken;
+    let tokens;
     try {
         // Get all parameters from request body
         const { email, password } = req.body;
         // Check if all the required fields are in request body
         if (!(email && password)) {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.BAD_REQUEST, false, 'Please enter all required fields');
+            return next({ statusCode: http_status_codes_1.StatusCodes.BAD_REQUEST, message: 'Please enter all required fields' });
         }
         // Find User details from DB
-        try {
-            user = await user_1.User.findOne({ email });
-            if (user) {
-                isPasswordCorrect = await (0, helpers_1.compareHashPassword)(password, user.password);
-            }
-            else {
-                return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.NOT_FOUND, false, `User doesn't exist`);
-            }
+        user = await user_1.User.findOne({ email });
+        if (!user) {
+            return next({ statusCode: http_status_codes_1.StatusCodes.NOT_FOUND, message: `User doesn't exist` });
         }
-        catch (error) {
-            console.error(error);
+        isPasswordCorrect = await (0, helpers_1.compareHashPassword)(password, user.password);
+        if (!isPasswordCorrect) {
+            return next({ statusCode: http_status_codes_1.StatusCodes.UNAUTHORIZED, message: `Wrong credentials` });
         }
         // Generate JWT Token
-        if (user && isPasswordCorrect && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET) {
-            let id = user._id;
-            accessToken = jsonwebtoken_1.default.sign({ id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "30m" });
-            refreshToken = jsonwebtoken_1.default.sign({ id }, process.env.REFRESH_TOKEN_SECRET);
-        }
-        else if (!isPasswordCorrect) {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.UNAUTHORIZED, false, `Wrong credentials`);
-        }
-        else {
-            console.error("Environment Variables are not accessible");
+        tokens = (0, helpers_1.generateToken)(user._id);
+        if (!tokens) {
+            throw new Error('Something went wrong');
         }
         // Save Refresh Token in db
-        if (refreshToken) {
-            const filter = { _id: user._id };
-            const updateOperation = {
-                $set: {
-                    token: refreshToken
-                }
-            };
-            await user_1.User.updateOne(filter, updateOperation);
-        }
+        const filter = { _id: user._id };
+        const updateOperation = {
+            $set: {
+                token: tokens.refreshToken
+            }
+        };
+        await user_1.User.updateOne(filter, updateOperation);
         // Send Response    
-        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.OK, true, 'Login Successful', {
-            "accessToken": accessToken,
-            "refreshToken": refreshToken
-        });
+        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.OK, true, 'Login Successful', tokens);
     }
     catch (error) {
-        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.UNAUTHORIZED, false, `Error: ${error}`);
+        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR, false, `Error: ${error}`);
     }
 };
 exports.login = login;
-// Token Refresh
+// Token Refresh Controller
 const token = async (req, res, next) => {
     let verifiedToken;
     let user;
-    let accessToken, newRefreshToken;
+    let tokens;
     try {
         // Get all parameters from request body
         const { refreshToken } = req.body;
         // Check if all the required fields are in request body
         if (!(refreshToken)) {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.BAD_REQUEST, false, 'Refresh token is not present');
+            return next({ statusCode: http_status_codes_1.StatusCodes.BAD_REQUEST, message: 'Token Missing' });
         }
         // Verify JWT Token
         if (process.env.REFRESH_TOKEN_SECRET) {
             verifiedToken = jsonwebtoken_1.default.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         }
         // Find User details from DB
-        if (verifiedToken) {
-            try {
-                user = await user_1.User.findById(verifiedToken.id);
-            }
-            catch (error) {
-                console.error(error);
-            }
-        }
-        else {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.BAD_REQUEST, false, `Invalid Token`);
-        }
+        user = await user_1.User.findById(verifiedToken.id);
         if (!user) {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.BAD_REQUEST, false, `Invalid Token`);
+            return next({ statusCode: http_status_codes_1.StatusCodes.NOT_FOUND, message: 'User not found' });
         }
-        if (user.token == refreshToken) {
+        if (user.token === refreshToken) {
             // Generate JWT Token
-            if (user && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET) {
-                let id = user._id;
-                accessToken = jsonwebtoken_1.default.sign({ id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "30m" });
-                newRefreshToken = jsonwebtoken_1.default.sign({ id }, process.env.REFRESH_TOKEN_SECRET);
-            }
-            else {
-                console.error("Environment Variables are not accessible");
-            }
+            tokens = (0, helpers_1.generateToken)(user._id);
             // Save Refresh Token in db
-            if (newRefreshToken) {
-                const filter = { _id: user._id };
-                const updateOperation = {
-                    $set: {
-                        token: newRefreshToken
-                    }
-                };
-                await user_1.User.updateOne(filter, updateOperation);
+            if (!tokens) {
+                throw new Error("Something went wrong");
             }
+            const filter = { _id: user._id };
+            const updateOperation = {
+                $set: {
+                    token: tokens?.refreshToken
+                }
+            };
+            await user_1.User.updateOne(filter, updateOperation);
             // Send Response    
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.OK, true, 'Token Refresh Successful', {
-                "accessToken": accessToken,
-                "refreshToken": refreshToken
-            });
+            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.OK, true, 'Token Refresh Successful', tokens);
         }
         else {
-            return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.UNAUTHORIZED, false, 'Token Refresh Failed');
+            return next({ statusCode: http_status_codes_1.StatusCodes.UNAUTHORIZED, message: 'Token Refresh Failed' });
         }
     }
     catch (error) {
-        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.UNAUTHORIZED, false, `Error: ${error}`);
+        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR, false, `Error: ${error}`);
     }
 };
 exports.token = token;
+// Logout Controller
+const logout = async (req, res, next) => {
+    try {
+        let token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            throw new Error("Token Missing");
+        }
+        let decodedToken;
+        if (process.env.ACCESS_TOKEN_SECRET) {
+            decodedToken = jsonwebtoken_1.default.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        }
+        let user = await user_1.User.findById(decodedToken.id);
+        if (!user) {
+            throw new Error("User not found");
+        }
+        const filter = { _id: user._id };
+        const updateOperation = {
+            $set: {
+                token: ''
+            }
+        };
+        let { acknowledged } = await user_1.User.updateOne(filter, updateOperation);
+        if (!acknowledged) {
+            throw new Error("Something went wrong");
+        }
+        return (0, helpers_1.response)(res, http_status_codes_1.StatusCodes.OK, true, "Logout Successful");
+    }
+    catch (error) {
+        next({ statusCode: http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR, message: `${error}` });
+    }
+};
+exports.logout = logout;

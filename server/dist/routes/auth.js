@@ -10,4 +10,6 @@ const app = express_1.default.Router();
 app.post("/login", auth_1.login);
 //route: /api/auth/token
 app.post("/token", auth_1.token);
+//route: /api/auth/logout
+app.get("/logout", auth_1.logout);
 exports.default = app;

@@ -3,8 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compareHashPassword = exports.genHashPassword = exports.calculateAge = exports.response = void 0;
+exports.generateToken = exports.compareHashPassword = exports.genHashPassword = exports.calculateAge = exports.response = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 // Response Wrapper
 function response(res, statusCode, success, message, data) {
     return res.status(statusCode).json({
@@ -52,3 +53,13 @@ async function compareHashPassword(password, dbpassword) {
     }
 }
 exports.compareHashPassword = compareHashPassword;
+// Generate Token
+function generateToken(id) {
+    if (id && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET) {
+        let accessToken = jsonwebtoken_1.default.sign({ id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1m" });
+        let refreshToken = jsonwebtoken_1.default.sign({ id }, process.env.REFRESH_TOKEN_SECRET);
+        return { accessToken, refreshToken };
+    }
+    return null;
+}
+exports.generateToken = generateToken;

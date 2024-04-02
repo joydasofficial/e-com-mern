@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import { Response } from "express";
+import jwt from "jsonwebtoken";
 
 // Response Wrapper
 export function response(res: Response, statusCode: number, success: boolean, message: string, data?: any){
@@ -50,4 +51,14 @@ export async function compareHashPassword(password: string, dbpassword: string) 
   } catch (error) {
       throw new Error('Hashing failed ' + error);
   }
+}
+
+// Generate Token
+export function generateToken(id: string){
+  if(id && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET){
+    let accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "1m"});
+    let refreshToken = jwt.sign({id}, process.env.REFRESH_TOKEN_SECRET);
+    return {accessToken, refreshToken}
+  }
+  return null
 }
