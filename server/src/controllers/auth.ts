@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { User } from "../models/user";
-import { compareHashPassword, genHashPassword, response } from "../util/helpers";
+import { compareHashPassword, genHashPassword, generateToken, response } from "../util/helpers";
 import { StatusCodes } from "http-status-codes";
 import jwt from "jsonwebtoken";
-import { Login, Token } from "../types/auth";
+import { Login, Token, Tokens } from "../types/auth";
 
 // Login Controller
 export const login = async (
@@ -13,7 +13,7 @@ export const login = async (
 ) => {
 	let isPasswordCorrect: boolean = false;
 	let user: any;
-  let accessToken: any, refreshToken: any;
+  let tokens: Tokens | null;
 
   try {
     // Get all parameters from request body
@@ -21,58 +21,47 @@ export const login = async (
 
     // Check if all the required fields are in request body
     if(!(email && password )){
-      return response(res, StatusCodes.BAD_REQUEST, false, 'Please enter all required fields');
+		  return next({statusCode: StatusCodes.BAD_REQUEST, message: 'Please enter all required fields'});
     }
 
     // Find User details from DB
-		try {
-			user = await User.findOne({ email });
+		user = await User.findOne({ email });
 
-			if(user){
-				isPasswordCorrect = await compareHashPassword(password, user.password);
-			}else{
-				return response(res, StatusCodes.NOT_FOUND, false, `User doesn't exist`);
-			}
-		} catch (error) {
-			console.error(error);
+		if(!user){
+			return next({statusCode: StatusCodes.NOT_FOUND, message: `User doesn't exist`});
+		}
+
+		isPasswordCorrect = await compareHashPassword(password, user.password);
+
+		if(!isPasswordCorrect){
+			return next({statusCode: StatusCodes.UNAUTHORIZED, message: `Wrong credentials`});
 		}
 
     // Generate JWT Token
-    if(user && isPasswordCorrect && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET){
-      let id: any = user._id;
-      accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "30m"});
-      refreshToken = jwt.sign({id}, process.env.REFRESH_TOKEN_SECRET);
-    }else if(!isPasswordCorrect){
-			return response(res, StatusCodes.UNAUTHORIZED, false, `Wrong credentials`);
+		tokens = generateToken(user._id);
+		if(!tokens){
+			throw new Error('Something went wrong');
 		}
-		else{
-      console.error("Environment Variables are not accessible");
-    }
-
+      
     // Save Refresh Token in db
-    if(refreshToken){
-      const filter = { _id: user._id };
-      const updateOperation = {
-        $set: {
-            token: refreshToken
-        }
-      }; 
+		const filter = { _id: user._id };
+		const updateOperation = {
+			$set: {
+				token: tokens.refreshToken
+			}
+		}; 
 
-      await User.updateOne(filter, updateOperation);
-    }
+		await User.updateOne(filter, updateOperation);
     
     // Send Response    
-    return response(res, StatusCodes.OK, true, 'Login Successful', {
-      "accessToken": accessToken,
-      "refreshToken": refreshToken
-    });
+    return response(res, StatusCodes.OK, true, 'Login Successful', tokens);
 
   } catch (error) {
-    return response(res, StatusCodes.UNAUTHORIZED, false, `Error: ${error}`);
+    return response(res, StatusCodes.INTERNAL_SERVER_ERROR, false, `Error: ${error}`);
   }
 };
 
-// Token Refresh
+// Token Refresh Controller
 export const token = async (
   req: Request<{}, {}, Token>,
   res: Response,
@@ -80,7 +69,7 @@ export const token = async (
 ) => {
 	let verifiedToken: any;
 	let user: any;
-  let accessToken: any, newRefreshToken: any;
+  let tokens: Tokens | null;
 
   try {
     // Get all parameters from request body
@@ -88,61 +77,85 @@ export const token = async (
 
     // Check if all the required fields are in request body
     if(!(refreshToken)){
-      return response(res, StatusCodes.BAD_REQUEST, false, 'Refresh token is not present');
-    }
-
-	// Verify JWT Token
-	if(process.env.REFRESH_TOKEN_SECRET){
-		verifiedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);			
-	}
-
-    // Find User details from DB
-	if(verifiedToken){
-		try {
-			user = await User.findById(verifiedToken.id);		
-		} catch (error) {
-			console.error(error);
-		}
-	}else{
-		return response(res, StatusCodes.BAD_REQUEST, false, `Invalid Token`);
-	}
-
-	if(!user){
-		return response(res, StatusCodes.BAD_REQUEST, false, `Invalid Token`);
-	}
-	
-	if(user.token==refreshToken){
-		// Generate JWT Token
-		if(user && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET){
-			let id: any = user._id;
-			accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "30m"});
-			newRefreshToken = jwt.sign({id}, process.env.REFRESH_TOKEN_SECRET);
-		}else{
-			console.error("Environment Variables are not accessible");
+			return next({statusCode: StatusCodes.BAD_REQUEST, message: 'Token Missing'});
 		}
 
-		// Save Refresh Token in db
-		if(newRefreshToken){
+		// Verify JWT Token
+		if(process.env.REFRESH_TOKEN_SECRET){
+			verifiedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);			
+		}
+
+		// Find User details from DB
+		user = await User.findById(verifiedToken.id);		
+		if(!user){
+			return next({statusCode: StatusCodes.NOT_FOUND, message: 'User not found'});
+		}
+
+		if(user.token===refreshToken){
+			// Generate JWT Token
+			tokens = generateToken(user._id);
+
+			// Save Refresh Token in db
+			if(!tokens){
+				throw new Error("Something went wrong");
+			}
+
 			const filter = { _id: user._id };
 			const updateOperation = {
 				$set: {
-						token: newRefreshToken
+					token: tokens?.refreshToken
 				}
 			}; 
 
 			await User.updateOne(filter, updateOperation);
+
+			// Send Response    
+			return response(res, StatusCodes.OK, true, 'Token Refresh Successful', tokens);
+		}else{
+			return next({statusCode: StatusCodes.UNAUTHORIZED, message: 'Token Refresh Failed'});
 		}
 
-		// Send Response    
-		return response(res, StatusCodes.OK, true, 'Token Refresh Successful', {
-			"accessToken": accessToken,
-			"refreshToken": refreshToken
-		});
-	}else{
-		return response(res, StatusCodes.UNAUTHORIZED, false, 'Token Refresh Failed');
-	}
-
   } catch (error) {
-    return response(res, StatusCodes.UNAUTHORIZED, false, `Error: ${error}`);
+    return response(res, StatusCodes.INTERNAL_SERVER_ERROR, false, `Error: ${error}`);
   }
 };
+
+// Logout Controller
+export const logout = async (
+	req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+	try {
+		let token = req.headers.authorization?.split(' ')[1];		
+		if(!token){
+			throw new Error("Token Missing");
+		}
+
+		let decodedToken: any;
+		if(process.env.ACCESS_TOKEN_SECRET){
+			decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+		}
+
+		let user = await User.findById(decodedToken.id);
+		if(!user){
+			throw new Error("User not found");
+		}
+
+		const filter = { _id: user._id }
+		const updateOperation = {
+			$set: {
+					token: ''
+			}
+		}; 
+
+		let { acknowledged } = await User.updateOne(filter, updateOperation);
+		if(!acknowledged){
+			throw new Error("Something went wrong");
+		}
+
+		return response(res, StatusCodes.OK, true, "Logout Successful");
+	} catch (error) {
+		next({statusCode: StatusCodes.INTERNAL_SERVER_ERROR, message: `${error}` });
+	}
+}

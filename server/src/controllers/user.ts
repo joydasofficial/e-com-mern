@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { CreateUserReqBody, UserDTO } from "../types/user";
 import { User } from "../models/user";
-import { calculateAge, genHashPassword, response } from "../util/helpers";
+import { calculateAge, genHashPassword, generateToken, response } from "../util/helpers";
 import { StatusCodes } from "http-status-codes";
 import jwt from "jsonwebtoken";
+import { Tokens } from "../types/auth";
 
 // Create User Controller
 export const createUser = async (
@@ -20,13 +21,13 @@ export const createUser = async (
 
     // Check if all the required fields are in request body
     if(!(name && email && password && dob && gender && photo )){
-      return response(res, StatusCodes.BAD_REQUEST, false, 'Please enter all required fields');
+      return next({statusCode: StatusCodes.BAD_REQUEST, message: 'Please enter all required fields'});
     }
 
     // Check if user already exist
     let existingUser = await User.findOne({ email: email});    
     if(existingUser){
-      return response(res, StatusCodes.CONFLICT, false, 'User already exist');
+      return next({statusCode: StatusCodes.CONFLICT, message: 'User already exist'});
     }
 
     // Generate Hash Password
@@ -45,21 +46,15 @@ export const createUser = async (
     });    
 
     // Generate JWT Token
-    let accessToken: any, refreshToken: any;
-    if(process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET){
-      let id: any = user._id;
-      accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "30m"});
-      refreshToken = jwt.sign({id}, process.env.REFRESH_TOKEN_SECRET);
-    }else{
-      console.error("Environment Variables are not accessible");
-    }
+    let tokens: Tokens | null;
+    tokens = generateToken(user._id);
 
     // Save Refresh Token in db
-    if(refreshToken){
+    if(tokens?.refreshToken){
       const filter = { _id: user._id };
       const updateOperation = {
         $set: {
-            token: refreshToken
+            token: tokens.refreshToken
         }
       }; 
 
@@ -67,10 +62,7 @@ export const createUser = async (
     }
     
     // Send Response    
-    return response(res, StatusCodes.CREATED, true, 'User Created Successfully', {
-      "accessToken": accessToken,
-      "refreshToken": refreshToken
-    });
+    return response(res, StatusCodes.CREATED, true, 'User Created Successfully', tokens);
 
   } catch (error) {
     return response(res, StatusCodes.INTERNAL_SERVER_ERROR, false, `Error ${error}`);
@@ -89,11 +81,11 @@ export const getProfile = async(
 
   // Get token from header
   // TODO: Add auth middleware
-  if(req.headers.authorization){
-    token = req.headers.authorization.split(' ')[1];
-  }else{
-    return response(res, StatusCodes.NOT_FOUND, false, 'Bad Request');
+  if(!req.headers.authorization){
+    return next({statusCode: StatusCodes.NOT_FOUND, message: 'Bad Request'});
   }
+
+  token = req.headers.authorization.split(' ')[1];
 
   try {
     if(process.env.ACCESS_TOKEN_SECRET){
@@ -101,13 +93,13 @@ export const getProfile = async(
     }
   
     if(!verifiedToken){
-      return response(res, StatusCodes.UNAUTHORIZED, false, 'Un-Authorized');
+      return next({statusCode: StatusCodes.UNAUTHORIZED, message: 'Un-Authorized'});
     }
 
     user = await User.findById(verifiedToken.id).select('_id name email dob gender photo role age createdAt updatedAt');
     
     if(!user){
-      return response(res, StatusCodes.NOT_FOUND, false, 'User not found');
+      return next({statusCode: StatusCodes.NOT_FOUND, message: 'User not found'});
     }
   
     return response(res, StatusCodes.OK, true, 'Success', user);

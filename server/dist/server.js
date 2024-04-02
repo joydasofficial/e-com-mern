@@ -9,6 +9,7 @@ const express_1 = __importDefault(require("express"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const user_1 = __importDefault(require("./routes/user"));
 const dbconnection_1 = require("./util/dbconnection");
+const error_1 = require("./middleware/error");
 const PORT = 3001;
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
@@ -22,6 +23,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", auth_1.default);
 // User Routes
 app.use("/api/user", user_1.default);
+// Error Handler
+app.use(error_1.ErrorHandler);
 app.listen(PORT, () => {
     console.log('Server is running at: ' + PORT);
 });
