@@ -56,7 +56,7 @@ exports.compareHashPassword = compareHashPassword;
 // Generate Token
 function generateToken(id) {
     if (id && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET) {
-        let accessToken = jsonwebtoken_1.default.sign({ id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1m" });
+        let accessToken = jsonwebtoken_1.default.sign({ id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "30m" });
         let refreshToken = jsonwebtoken_1.default.sign({ id }, process.env.REFRESH_TOKEN_SECRET);
         return { accessToken, refreshToken };
     }

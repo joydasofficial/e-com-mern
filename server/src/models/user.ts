@@ -9,6 +9,7 @@ interface UserInterface extends Document {
   dob: Date;
   gender: "male" | "female";
   role: "admin" | "user";
+  canSell: boolean;
   photo: string;
   age: number;
   token: string;
@@ -55,6 +56,10 @@ const schema = new mongoose.Schema(
       enum: ["admin", "user"],
       required: [true, "Please Enter Role"],
       default: "user"
+    },
+    canSell:{
+      type: Boolean,
+      default: false
     },
     photo: {
       type: String,

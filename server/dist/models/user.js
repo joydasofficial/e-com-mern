@@ -45,6 +45,10 @@ const schema = new mongoose_1.default.Schema({
         required: [true, "Please Enter Role"],
         default: "user"
     },
+    canSell: {
+        type: Boolean,
+        default: false
+    },
     photo: {
         type: String,
         required: [true, "Please Enter Photo"],

@@ -15,9 +15,9 @@ export const authCheck = (req: Request, res: Response, next:NextFunction) => {
       throw new Error("Something went wrong");
     }
 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    let decodedToken: any = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     
-    next(); 
+    next({ id: decodedToken.id, isSeller: true }); 
 
   } catch (error) {    
     return response(res, StatusCodes.UNAUTHORIZED, false, `${error}`);

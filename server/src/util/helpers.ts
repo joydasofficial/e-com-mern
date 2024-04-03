@@ -56,7 +56,7 @@ export async function compareHashPassword(password: string, dbpassword: string) 
 // Generate Token
 export function generateToken(id: string){
   if(id && process.env.ACCESS_TOKEN_SECRET && process.env.REFRESH_TOKEN_SECRET){
-    let accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "1m"});
+    let accessToken = jwt.sign({id}, process.env.ACCESS_TOKEN_SECRET,{ expiresIn: "30m"});
     let refreshToken = jwt.sign({id}, process.env.REFRESH_TOKEN_SECRET);
     return {accessToken, refreshToken}
   }

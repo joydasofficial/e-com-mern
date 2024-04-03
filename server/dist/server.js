@@ -8,6 +8,7 @@ const express_1 = __importDefault(require("express"));
 // Route Imports
 const auth_1 = __importDefault(require("./routes/auth"));
 const user_1 = __importDefault(require("./routes/user"));
+const products_1 = __importDefault(require("./routes/products"));
 const dbconnection_1 = require("./util/dbconnection");
 const error_1 = require("./middleware/error");
 const PORT = 3001;
@@ -23,6 +24,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", auth_1.default);
 // User Routes
 app.use("/api/user", user_1.default);
+// Products Routes
+app.use("/api/product", products_1.default);
 // Error Handler
 app.use(error_1.ErrorHandler);
 app.listen(PORT, () => {

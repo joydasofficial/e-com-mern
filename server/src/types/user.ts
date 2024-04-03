@@ -10,6 +10,7 @@ export interface CreateUserReqBody {
     age?: number; 
     createdAt?: Date;
     updatedAt?: Date;
+    canSell: boolean;
 }
 
 export interface UserDTO {

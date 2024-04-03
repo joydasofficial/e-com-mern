@@ -12,11 +12,11 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const createUser = async (req, res, next) => {
     try {
         // Get all parameters from request body
-        const { name, email, password, dob, gender, photo, role } = req.body;
+        const { name, email, password, dob, gender, photo, role, canSell } = req.body;
         // Calculate Age
         const age = (0, helpers_1.calculateAge)(dob);
         // Check if all the required fields are in request body
-        if (!(name && email && password && dob && gender && photo)) {
+        if (!(name && email && password && dob && gender && photo && canSell)) {
             return next({ statusCode: http_status_codes_1.StatusCodes.BAD_REQUEST, message: 'Please enter all required fields' });
         }
         // Check if user already exist
@@ -35,7 +35,8 @@ const createUser = async (req, res, next) => {
             gender,
             photo,
             role,
-            age
+            age,
+            canSell
         });
         // Generate JWT Token
         let tokens;

@@ -2,8 +2,10 @@ import 'dotenv/config'
 import express from 'express';
 
 // Route Imports
-import authRoute from './routes/auth';
-import userRoute from './routes/user';
+import authRoutes from './routes/auth';
+import userRoutes from './routes/user';
+import productRoutes from './routes/products';
+
 import { connectDB } from './util/dbconnection';
 import { ErrorHandler } from './middleware/error';
 
@@ -22,10 +24,13 @@ app.get("/", (req, res)=>{
 });
 
 // Auth Routes
-app.use("/api/auth", authRoute);
+app.use("/api/auth", authRoutes);
 
 // User Routes
-app.use("/api/user", userRoute);
+app.use("/api/user", userRoutes);
+
+// Products Routes
+app.use("/api/product", productRoutes);
 
 // Error Handler
 app.use(ErrorHandler);

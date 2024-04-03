@@ -14,13 +14,13 @@ export const createUser = async (
 ) => {
   try {
     // Get all parameters from request body
-    const { name, email, password, dob, gender, photo, role } = req.body;
+    const { name, email, password, dob, gender, photo, role, canSell } = req.body;
 
     // Calculate Age
     const age = calculateAge(dob);
 
     // Check if all the required fields are in request body
-    if(!(name && email && password && dob && gender && photo )){
+    if(!(name && email && password && dob && gender && photo && canSell)){
       return next({statusCode: StatusCodes.BAD_REQUEST, message: 'Please enter all required fields'});
     }
 
@@ -42,7 +42,8 @@ export const createUser = async (
       gender,
       photo,
       role,
-      age
+      age,
+      canSell
     });    
 
     // Generate JWT Token
